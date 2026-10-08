@@ -74,7 +74,11 @@ jobs:
           test "${{ steps.pass.outputs.passed }}" = "true"
           test -f "${{ steps.pass.outputs.report }}"
       - name: Change the page on purpose
-        run: printf '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Fixture</title></head><body style="background:#223"><h1>Version two</h1></body></html>' > site/index.html
+        run: |
+          printf '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Fixture</title><style>body{background:#1a2b3c;color:#fff;font-family:sans-serif;margin:0}main{max-width:640px;margin:0 auto;padding:48px}h1{font-size:64px}</style></head><body><main><h1>Version two has a completely different look</h1><p>Extra paragraph to guarantee a large visual diff.</p></main></body></html>' > site/index.html
+          sleep 5
+          cat site/index.html | head -c 120
+          echo
       - name: Test changed page (must fail)
         id: fail
         continue-on-error: true
@@ -83,6 +87,14 @@ jobs:
           url: http://site/
           command: test
           viewports: mobile
+      - name: Upload regression evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: regression-evidence
+          path: |
+            .madscope/results/
+            madscope-report.json
       - name: Assert failure surfaced
         run: |
           test "${{ steps.fail.outcome }}" = "failure"
