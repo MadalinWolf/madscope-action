@@ -58,18 +58,25 @@ A `madscope.config.ts` in the working directory is honored automatically.
 
 ## Testing localhost services
 
-This action runs in a Docker container with its own loopback interface, so a server on the runner is **not** reachable at `127.0.0.1` from inside the action. Serve on all interfaces and address the host via the bridge gateway:
+This action runs in a Docker container with its own loopback interface, so a server on the runner is **not** reachable at `127.0.0.1` from inside the action. Serve the site from a service container on the job network and address it by service hostname:
 
 ```yaml
-- name: Start your site
-  run: |
-    nohup python3 -m http.server 3000 --bind 0.0.0.0 --directory public >/tmp/http.log 2>&1 &
-    echo "HOST_GW=$(ip route | awk '/default/ {print $3}')" >> "$GITHUB_ENV"
-
-- uses: MadalinWolf/madscope-action@v1
-  with:
-    url: http://${{ env.HOST_GW }}:3000
+jobs:
+  madscope:
+    runs-on: ubuntu-latest
+    services:
+      site:
+        image: nginx:alpine
+        volumes:
+          - ${{ github.workspace }}/public:/usr/share/nginx/html:ro
+    steps:
+      - uses: actions/checkout@v4
+      - uses: MadalinWolf/madscope-action@v1
+        with:
+          url: http://site/
 ```
+
+For app servers (Node, Python, …), wrap them in a service container or publish them behind a reverse-proxy service on the job network.
 
 ## Outputs
 
