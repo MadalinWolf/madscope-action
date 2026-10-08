@@ -1,8 +1,10 @@
 FROM node:22-bookworm-slim
 
 # System deps for Playwright Chromium + git to fetch the MadScope engine.
+# ca-certificates is required: the -slim base ships without a CA bundle,
+# which breaks TLS (e.g. cloning the engine repo).
 RUN apt-get update \
-  && apt-get install -y --no-install-recommends git python3 \
+  && apt-get install -y --no-install-recommends ca-certificates git python3 \
   && rm -rf /var/lib/apt/lists/*
 
 # Pin the MadScope engine version baked into the image.
