@@ -13,6 +13,10 @@ RUN git clone --depth 1 --branch "${MADSCOPE_REF}" https://github.com/MadalinWol
 
 WORKDIR /madscope
 
+# Browsers live at a fixed image path: the Actions runtime overrides HOME,
+# so Playwright's default (~/.cache) would not match the build-time location.
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+
 # Engine dependencies, CLI build, and Chromium (+ OS deps) for the engine's
 # exact Playwright version.
 RUN npm ci \
