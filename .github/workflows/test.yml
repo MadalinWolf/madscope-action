@@ -2,6 +2,9 @@
 # - screenshot mode exits 0 and writes images
 # - baseline -> test passes on an unchanged page
 # - test fails (non-zero) after an intentional visual change
+#
+# NOTE: Docker actions run in a container with its own loopback interface,
+# so the fixture server is reached via the bridge gateway (not 127.0.0.1).
 name: Test action
 
 on:
@@ -17,13 +20,14 @@ jobs:
         run: |
           mkdir -p site
           printf '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Fixture</title><style>body{font-family:sans-serif;margin:0}main{max-width:640px;margin:0 auto;padding:24px}</style></head><body><main><h1>Fixture</h1><p>Stable page.</p></main></body></html>' > site/index.html
-          nohup python3 -m http.server 8931 --directory site >/tmp/http.log 2>&1 &
+          nohup python3 -m http.server 8931 --bind 0.0.0.0 --directory site >/tmp/http.log 2>&1 &
           sleep 2 && curl -fsS http://127.0.0.1:8931/ >/dev/null
+          echo "HOST_GW=$(ip route | awk '/default/ {print $3}')" >> "$GITHUB_ENV"
       - name: Run MadScope screenshot
         id: shot
         uses: ./
         with:
-          url: http://127.0.0.1:8931/
+          url: http://${{ env.HOST_GW }}:8931/
           command: screenshot
           viewports: mobile desktop
       - name: Verify screenshots exist
@@ -39,19 +43,20 @@ jobs:
         run: |
           mkdir -p site
           printf '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Fixture</title></head><body><h1>Version one</h1></body></html>' > site/index.html
-          nohup python3 -m http.server 8932 --directory site >/tmp/http.log 2>&1 &
+          nohup python3 -m http.server 8932 --bind 0.0.0.0 --directory site >/tmp/http.log 2>&1 &
           sleep 2 && curl -fsS http://127.0.0.1:8932/ >/dev/null
+          echo "HOST_GW=$(ip route | awk '/default/ {print $3}')" >> "$GITHUB_ENV"
       - name: Save baseline
         uses: ./
         with:
-          url: http://127.0.0.1:8932/
+          url: http://${{ env.HOST_GW }}:8932/
           command: baseline
           viewports: mobile
       - name: Test unchanged page (must pass)
         id: pass
         uses: ./
         with:
-          url: http://127.0.0.1:8932/
+          url: http://${{ env.HOST_GW }}:8932/
           command: test
           viewports: mobile
       - name: Assert pass outputs
@@ -65,7 +70,7 @@ jobs:
         continue-on-error: true
         uses: ./
         with:
-          url: http://127.0.0.1:8932/
+          url: http://${{ env.HOST_GW }}:8932/
           command: test
           viewports: mobile
       - name: Assert failure surfaced
