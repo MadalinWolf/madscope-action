@@ -13,7 +13,7 @@ inputs:
     required: false
     default: test
   viewports:
-    description: Space-separated viewport preset ids (see MadScope README). Example: "mobile tablet desktop".
+    description: 'Space-separated viewport preset ids (see MadScope README). Example: "mobile tablet desktop".'
     required: false
     default: mobile tablet desktop
   threshold:
