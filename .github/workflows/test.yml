@@ -26,8 +26,9 @@ jobs:
         run: |
           mkdir -p site && sudo chown -R "$USER" site
           printf '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Fixture</title><style>body{font-family:sans-serif;margin:0}main{max-width:640px;margin:0 auto;padding:24px}</style></head><body><main><h1>Fixture</h1><p>Stable page.</p></main></body></html>' > site/index.html
-          sleep 8
-          curl -fsS http://site/ >/dev/null
+          # The service hostname only resolves inside job containers, so there
+          # is no curl check here — the action step itself is the check.
+          sleep 15
       - name: Run MadScope screenshot
         id: shot
         uses: ./
@@ -53,8 +54,8 @@ jobs:
         run: |
           mkdir -p site && sudo chown -R "$USER" site
           printf '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Fixture</title></head><body><h1>Version one</h1></body></html>' > site/index.html
-          sleep 8
-          curl -fsS http://site/ >/dev/null
+          # The service hostname only resolves inside job containers (see above).
+          sleep 15
       - name: Save baseline
         uses: ./
         with:
