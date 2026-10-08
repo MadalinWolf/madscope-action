@@ -22,6 +22,11 @@ jobs:
           - ${{ github.workspace }}/site:/usr/share/nginx/html:ro
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Default `clean: true` would delete + recreate site/, orphaning
+          # the service container's bind mount (nginx would keep serving the
+          # deleted inode). The fixture is written by later steps instead.
+          clean: false
       - name: Write fixture site
         run: |
           mkdir -p site && sudo chown -R "$USER" site
@@ -50,6 +55,9 @@ jobs:
           - ${{ github.workspace }}/site:/usr/share/nginx/html:ro
     steps:
       - uses: actions/checkout@v4
+        with:
+          # See above: keep the bind-mounted site/ directory intact.
+          clean: false
       - name: Write fixture site
         run: |
           mkdir -p site && sudo chown -R "$USER" site
