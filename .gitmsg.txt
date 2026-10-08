@@ -1,6 +1,0 @@
-feat: MadScope GitHub Action with self-testing CI
-
-Docker action (Node 22 + Playwright Chromium) running the real
-MadScope CLI: screenshot/baseline/test commands, machine-readable
-JSON outputs, artifact-friendly report. Self-test workflow covers
-screenshot capture, baseline-to-pass and intentional-change failure.
