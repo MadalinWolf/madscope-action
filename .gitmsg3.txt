@@ -1,1 +1,0 @@
-fix: pin Playwright browsers path in the action image
