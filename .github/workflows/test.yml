@@ -114,6 +114,11 @@ jobs:
           path: |
             .madscope/results/
             madscope-report.json
+      - name: Diagnose nginx after requests
+        if: always()
+        run: |
+          for c in $(docker ps -q --filter "ancestor=nginx:alpine"); do echo "== nginx logs $c"; docker logs "$c" 2>&1 | tail -15 || true; done
+          ls -la site/ && head -c 150 site/index.html; echo
       - name: Assert failure surfaced
         run: |
           test "${{ steps.fail.outcome }}" = "failure"
