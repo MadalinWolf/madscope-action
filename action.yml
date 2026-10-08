@@ -1,0 +1,40 @@
+name: MadScope
+description: Automated responsive website testing and visual regression — renders URLs in real Chromium, captures screenshots, and fails on visual diffs.
+author: MadalinWolf
+branding:
+  icon: monitor
+  color: blue
+inputs:
+  url:
+    description: URL to test (http(s):// or http://localhost served by a previous step).
+    required: true
+  command:
+    description: MadScope command to run.
+    required: false
+    default: test
+  viewports:
+    description: Space-separated viewport preset ids (see MadScope README). Example: "mobile tablet desktop".
+    required: false
+    default: mobile tablet desktop
+  threshold:
+    description: Override the max fraction (0..1) of changed pixels before failure. Defaults to the project config.
+    required: false
+    default: ""
+  full-page:
+    description: Capture full-page screenshots ("true"/"false").
+    required: false
+    default: "false"
+  working-directory:
+    description: Directory to run in (baselines and .madscope output live here). Defaults to the workspace root.
+    required: false
+    default: ""
+outputs:
+  passed:
+    description: "true when the MadScope run passed, false otherwise."
+  max_change_ratio:
+    description: Largest changed-pixel fraction across viewports (test command only).
+  report:
+    description: Path to the machine-readable JSON report, relative to the workspace (test command only).
+runs:
+  using: docker
+  image: Dockerfile

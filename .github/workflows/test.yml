@@ -1,0 +1,74 @@
+# Self-test: builds the action image and runs it against a real local site.
+# - screenshot mode exits 0 and writes images
+# - baseline -> test passes on an unchanged page
+# - test fails (non-zero) after an intentional visual change
+name: Test action
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  screenshot:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Serve fixture site
+        run: |
+          mkdir -p site
+          printf '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Fixture</title><style>body{font-family:sans-serif;margin:0}main{max-width:640px;margin:0 auto;padding:24px}</style></head><body><main><h1>Fixture</h1><p>Stable page.</p></main></body></html>' > site/index.html
+          nohup python3 -m http.server 8931 --directory site >/tmp/http.log 2>&1 &
+          sleep 2 && curl -fsS http://127.0.0.1:8931/ >/dev/null
+      - name: Run MadScope screenshot
+        id: shot
+        uses: ./
+        with:
+          url: http://127.0.0.1:8931/
+          command: screenshot
+          viewports: mobile desktop
+      - name: Verify screenshots exist
+        run: |
+          test "${{ steps.shot.outputs.passed }}" = "true"
+          ls .madscope/screenshots/*.png
+
+  regression:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Serve fixture site
+        run: |
+          mkdir -p site
+          printf '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Fixture</title></head><body><h1>Version one</h1></body></html>' > site/index.html
+          nohup python3 -m http.server 8932 --directory site >/tmp/http.log 2>&1 &
+          sleep 2 && curl -fsS http://127.0.0.1:8932/ >/dev/null
+      - name: Save baseline
+        uses: ./
+        with:
+          url: http://127.0.0.1:8932/
+          command: baseline
+          viewports: mobile
+      - name: Test unchanged page (must pass)
+        id: pass
+        uses: ./
+        with:
+          url: http://127.0.0.1:8932/
+          command: test
+          viewports: mobile
+      - name: Assert pass outputs
+        run: |
+          test "${{ steps.pass.outputs.passed }}" = "true"
+          test -f "${{ steps.pass.outputs.report }}"
+      - name: Change the page on purpose
+        run: printf '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Fixture</title></head><body style="background:#223"><h1>Version two</h1></body></html>' > site/index.html
+      - name: Test changed page (must fail)
+        id: fail
+        continue-on-error: true
+        uses: ./
+        with:
+          url: http://127.0.0.1:8932/
+          command: test
+          viewports: mobile
+      - name: Assert failure surfaced
+        run: |
+          test "${{ steps.fail.outcome }}" = "failure"
+          test "${{ steps.fail.outputs.passed }}" = "false"
