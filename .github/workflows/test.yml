@@ -31,6 +31,8 @@ jobs:
         run: |
           mkdir -p site && sudo chown -R "$USER" site
           printf '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Fixture</title><style>body{font-family:sans-serif;margin:0}main{max-width:640px;margin:0 auto;padding:24px}</style></head><body><main><h1>Fixture</h1><p>Stable page.</p></main></body></html>' > site/index.html
+          # World-readable: the nginx worker (different uid) must traverse it.
+          chmod -R a+rX site
           # The service hostname only resolves inside job containers, so there
           # is no curl check here — the action step itself is the check.
           sleep 15
@@ -62,6 +64,8 @@ jobs:
         run: |
           mkdir -p site && sudo chown -R "$USER" site
           printf '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Fixture</title></head><body><h1>Version one</h1></body></html>' > site/index.html
+          # World-readable: the nginx worker (different uid) must traverse it.
+          chmod -R a+rX site
           # The service hostname only resolves inside job containers (see above).
           sleep 15
       - name: Diagnose service mount
@@ -70,6 +74,7 @@ jobs:
           docker ps --format '{{.ID}} {{.Names}} {{.Image}}'
           for c in $(docker ps -q); do echo "== $c"; docker inspect "$c" --format '{{.Name}} {{json .Mounts}}' 2>/dev/null || true; done
           ls -la site/
+          for c in $(docker ps -q --filter "ancestor=nginx:alpine"); do echo "== nginx logs $c"; docker logs "$c" 2>&1 | tail -5 || true; done
       - name: Save baseline
         uses: ./
         with:
