@@ -1,4 +1,0 @@
-fix: install ca-certificates in the action image
-
-The node:22-bookworm-slim base ships without a CA bundle, so git
-clone over HTTPS failed certificate verification.
