@@ -6,6 +6,8 @@
 # NOTE: Docker actions run in a container with its own loopback interface,
 # so the fixture is served by an nginx service container on the job network
 # and addressed by service hostname (http://site/), not 127.0.0.1.
+# Fixture files are copied INTO the service container with `docker cp`:
+# host bind mounts proved unreliable here (stale empty dir -> nginx 403).
 name: Test action
 
 on:
@@ -18,24 +20,16 @@ jobs:
     services:
       site:
         image: nginx:alpine
-        volumes:
-          - ${{ github.workspace }}/site:/usr/share/nginx/html:ro
     steps:
       - uses: actions/checkout@v4
-        with:
-          # Default `clean: true` would delete + recreate site/, orphaning
-          # the service container's bind mount (nginx would keep serving the
-          # deleted inode). The fixture is written by later steps instead.
-          clean: false
       - name: Write fixture site
         run: |
-          mkdir -p site && sudo chown -R "$USER" site
-          printf '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Fixture</title><style>body{font-family:sans-serif;margin:0}main{max-width:640px;margin:0 auto;padding:24px}</style></head><body><main><h1>Fixture</h1><p>Stable page.</p></main></body></html>' > site/index.html
-          # World-readable: the nginx worker (different uid) must traverse it.
-          chmod -R a+rX site
+          printf '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Fixture</title><style>body{font-family:sans-serif;margin:0}main{max-width:640px;margin:0 auto;padding:24px}</style></head><body><main><h1>Fixture</h1><p>Stable page.</p></main></body></html>' > /tmp/index.html
+          CID=$(docker ps -q --filter "ancestor=nginx:alpine")
+          docker cp /tmp/index.html "$CID:/usr/share/nginx/html/index.html"
           # The service hostname only resolves inside job containers, so there
           # is no curl check here — the action step itself is the check.
-          sleep 15
+          sleep 10
       - name: Run MadScope screenshot
         id: shot
         uses: ./
@@ -53,28 +47,15 @@ jobs:
     services:
       site:
         image: nginx:alpine
-        volumes:
-          - ${{ github.workspace }}/site:/usr/share/nginx/html:ro
     steps:
       - uses: actions/checkout@v4
-        with:
-          # See above: keep the bind-mounted site/ directory intact.
-          clean: false
       - name: Write fixture site
         run: |
-          mkdir -p site && sudo chown -R "$USER" site
-          printf '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Fixture</title></head><body><h1>Version one</h1></body></html>' > site/index.html
-          # World-readable: the nginx worker (different uid) must traverse it.
-          chmod -R a+rX site
+          printf '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Fixture</title></head><body><h1>Version one</h1></body></html>' > /tmp/index.html
+          CID=$(docker ps -q --filter "ancestor=nginx:alpine")
+          docker cp /tmp/index.html "$CID:/usr/share/nginx/html/index.html"
           # The service hostname only resolves inside job containers (see above).
-          sleep 15
-      - name: Diagnose service mount
-        if: always()
-        run: |
-          docker ps --format '{{.ID}} {{.Names}} {{.Image}}'
-          for c in $(docker ps -q); do echo "== $c"; docker inspect "$c" --format '{{.Name}} {{json .Mounts}}' 2>/dev/null || true; done
-          ls -la site/
-          for c in $(docker ps -q --filter "ancestor=nginx:alpine"); do echo "== nginx logs $c"; docker logs "$c" 2>&1 | tail -5 || true; done
+          sleep 10
       - name: Save baseline
         uses: ./
         with:
@@ -94,10 +75,10 @@ jobs:
           test -f "${{ steps.pass.outputs.report }}"
       - name: Change the page on purpose
         run: |
-          printf '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Fixture</title><style>body{background:#1a2b3c;color:#fff;font-family:sans-serif;margin:0}main{max-width:640px;margin:0 auto;padding:48px}h1{font-size:64px}</style></head><body><main><h1>Version two has a completely different look</h1><p>Extra paragraph to guarantee a large visual diff.</p></main></body></html>' > site/index.html
+          printf '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Fixture</title><style>body{background:#1a2b3c;color:#fff;font-family:sans-serif;margin:0}main{max-width:640px;margin:0 auto;padding:48px}h1{font-size:64px}</style></head><body><main><h1>Version two has a completely different look</h1><p>Extra paragraph to guarantee a large visual diff.</p></main></body></html>' > /tmp/index2.html
+          CID=$(docker ps -q --filter "ancestor=nginx:alpine")
+          docker cp /tmp/index2.html "$CID:/usr/share/nginx/html/index.html"
           sleep 5
-          cat site/index.html | head -c 120
-          echo
       - name: Test changed page (must fail)
         id: fail
         continue-on-error: true
@@ -114,11 +95,6 @@ jobs:
           path: |
             .madscope/results/
             madscope-report.json
-      - name: Diagnose nginx after requests
-        if: always()
-        run: |
-          for c in $(docker ps -q --filter "ancestor=nginx:alpine"); do echo "== nginx logs $c"; docker logs "$c" 2>&1 | tail -15 || true; done
-          ls -la site/ && head -c 150 site/index.html; echo
       - name: Assert failure surfaced
         run: |
           test "${{ steps.fail.outcome }}" = "failure"
