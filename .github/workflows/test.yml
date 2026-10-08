@@ -64,6 +64,12 @@ jobs:
           printf '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Fixture</title></head><body><h1>Version one</h1></body></html>' > site/index.html
           # The service hostname only resolves inside job containers (see above).
           sleep 15
+      - name: Diagnose service mount
+        if: always()
+        run: |
+          docker ps --format '{{.ID}} {{.Names}} {{.Image}}'
+          for c in $(docker ps -q); do echo "== $c"; docker inspect "$c" --format '{{.Name}} {{json .Mounts}}' 2>/dev/null || true; done
+          ls -la site/
       - name: Save baseline
         uses: ./
         with:
